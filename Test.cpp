@@ -11,7 +11,6 @@
 
 //#include "CompressiveTracker.h"
 
-
 using namespace cv;
 using namespace std;
 
@@ -19,25 +18,26 @@ using namespace std;
 // Face model
 const String face_cascade_name = "haarcascade_frontalface_alt.xml";
 
-void read_options(int, char**,VideoCapture&);
+void read_options(int, char**,VideoCapture&,int&);
 vector<Rect> faceDetection(Mat);
+
+struct TLD_Info {
+								TLD *tld;
+								string dirPath;
+								int fileCounter;
+};
 
 int main(int argc, char** argv)
 {
 								// parameters setting
 								VideoCapture capture;
+								vector<TLD*> vTLD;
 								FileStorage fs;
 								fs.open("parameters.yml", FileStorage::READ);
 								int skip_msecs = 0;
 
-								struct option longopts[] = {
-										{"s",required_argument,},
-										{}
-										{0,0,0,0}
-
-								}
-
-								read_options(argc,argv,capture);
+								// get program parameters
+								read_options(argc,argv,capture,skip_msecs);
 
 								if (!capture.isOpened()) {
 																cout << "VideoCapture Fail !!!" << endl;
@@ -58,9 +58,12 @@ int main(int argc, char** argv)
 																faces = faceDetection(last_gray);
 								}
 
-								TLD tld;
-								tld.read(fs.getFirstTopLevelNode());
-								tld.init(last_gray, faces[0]);
+								for(size_t i=0; i<faces.size(); i++) {
+																TLD *tld = new TLD();
+																tld->read(fs.getFirstTopLevelNode());
+																tld->init(last_gray, faces[i]);
+																vTLD.push_back(tld);
+								}
 
 								Mat current_gray;
 								BoundingBox pbox;
@@ -69,30 +72,24 @@ int main(int argc, char** argv)
 								bool status = true;
 								bool tl = true;
 
-								char dir_stringBuffer[20];
-								char image_stringBuffer[20];
-								int dir_counter = 1;
-								int image_counter = 1;
-
 								while (capture.read(frame)) {
 																cvtColor(frame, current_gray, CV_RGB2GRAY);
-																tld.processFrame(last_gray, current_gray, pts1, pts2, pbox, status, tl);
-																if (status) {
-																								Mat face_image = frame(pbox);
-																								imwrite("",face_image);
-
-																								//drawPoints(frame, pts1);
-																								//drawPoints(frame, pts2, Scalar(0, 255, 0));
-																								//drawBox(frame, pbox);
-																}
-																else{
-
+																for(size_t i=0; i<vTLD.size(); i++) {
+																								TLD *tempTLD = vTLD[i];
+																								tempTLD->processFrame(last_gray, current_gray, pts1, pts2, pbox, status, tl);
+																								if (status) {
+																																//Mat face_image = frame(pbox);
+																																//imwrite("",face_image);
+																																drawPoints(frame, pts1);
+																																drawPoints(frame, pts2, Scalar(0, 255, 0));
+																																drawBox(frame, pbox);
+																																pts1.clear();
+																																pts2.clear();
+																								}
 																}
 																imshow("Test", frame);
 																waitKey(1);
 																swap(last_gray, current_gray);
-																pts1.clear();
-																pts2.clear();
 								}
 
 
@@ -120,14 +117,18 @@ int main(int argc, char** argv)
 								return 0;
 }
 
-void read_options(int argc, char** argv,VideoCapture& capture){
+void read_options(int argc, char** argv,VideoCapture& capture,int& skip_msecs){
 								for(size_t i=0; i<argc; i++) {
 																if (strcmp(argv[i],"-s")==0) {
 																								if (argc>i) {
 																																string video = string(argv[i+1]);
 																																capture.open(video);
 																								}
-
+																}
+																if(strcmp(argv[i],"-t")==0) {
+																								if(argc>i) {
+																																skip_msecs = atoi(argv[i+1]);
+																								}
 																}
 								}
 }
