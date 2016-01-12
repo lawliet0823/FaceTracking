@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
-#include <dirent.h>
+#include <sys/stat.h>
 #include "tld_utils.h"
 #include "TLD.h"
 
@@ -14,30 +14,33 @@
 using namespace cv;
 using namespace std;
 
+struct TLD_Info {
+								TLD *tld;
+								int dirCounter;
+								int fileCounter;
+};
+
 // Global Variables
 // Face model
 const String face_cascade_name = "haarcascade_frontalface_alt.xml";
 
 void read_options(int, char**,VideoCapture&,int&);
+void setTLD_Info(TLD_Info&, TLD*, int, int);
 vector<Rect> faceDetection(Mat);
-
-struct TLD_Info {
-								TLD *tld;
-								string dirPath;
-								int fileCounter;
-};
 
 int main(int argc, char** argv)
 {
 								// parameters setting
 								VideoCapture capture;
 								vector<TLD*> vTLD;
+								vector<TLD_Info> vtld_info;
 								FileStorage fs;
 								fs.open("parameters.yml", FileStorage::READ);
 								int skip_msecs = 0;
+								int dirCounter = 1;
 
 								// get program parameters
-								read_options(argc,argv,capture,skip_msecs);
+								read_options(argc, argv, capture, skip_msecs);
 
 								if (!capture.isOpened()) {
 																cout << "VideoCapture Fail !!!" << endl;
@@ -58,11 +61,20 @@ int main(int argc, char** argv)
 																faces = faceDetection(last_gray);
 								}
 
-								for(size_t i=0; i<faces.size(); i++) {
-																TLD *tld = new TLD();
-																tld->read(fs.getFirstTopLevelNode());
-																tld->init(last_gray, faces[i]);
-																vTLD.push_back(tld);
+								// create directory && initialize TLD && set up parameters
+								char dirPath[20];
+								for(size_t i = 0; i < faces.size(); i++) {
+																TLD_Info tempTLD_Info;
+																TLD *tempTLD = new TLD();
+																tempTLD->read(fs.getFirstTopLevelNode());
+																tempTLD->init(last_gray, faces[i]);
+																setTLD_Info(tempTLD_Info, tempTLD, dirCounter, 1);
+
+																sprintf(dirPath, "./%d/", dirCounter);
+																mkdir(dirPath, 0700);
+																++dirCounter;
+																vtld_info.push_back(tempTLD_Info);
+																//vTLD.push_back(tld);
 								}
 
 								Mat current_gray;
@@ -72,52 +84,34 @@ int main(int argc, char** argv)
 								bool status = true;
 								bool tl = true;
 
+								int success_count = 0;
+
 								while (capture.read(frame)) {
 																cvtColor(frame, current_gray, CV_RGB2GRAY);
-																for(size_t i=0; i<vTLD.size(); i++) {
-																								TLD *tempTLD = vTLD[i];
-																								tempTLD->processFrame(last_gray, current_gray, pts1, pts2, pbox, status, tl);
+																for(size_t i = 0; i < vtld_info.size(); i++) {
+																								char filePath[50];
+																								TLD_Info tempTLD_Info = vtld_info[i];
+																								tempTLD_Info.tld->processFrame(last_gray, current_gray, pts1, pts2, pbox, status, tl);
 																								if (status) {
-																																//Mat face_image = frame(pbox);
-																																//imwrite("",face_image);
-																																drawPoints(frame, pts1);
-																																drawPoints(frame, pts2, Scalar(0, 255, 0));
-																																drawBox(frame, pbox);
+																																Mat face_image = frame(pbox);
+																																sprintf(filePath, "./%d/%d.jpg", tempTLD_Info.dirCounter, tempTLD_Info.fileCounter);
+																																imwrite(filePath, face_image);
+																																//drawPoints(frame, pts1);
+																																//drawPoints(frame, pts2, Scalar(0, 255, 0));
+																																//drawBox(frame, pbox);
 																																pts1.clear();
 																																pts2.clear();
 																								}
 																}
-																imshow("Test", frame);
-																waitKey(1);
+																//imshow("Test", frame);
+																//waitKey(1);
 																swap(last_gray, current_gray);
 								}
-
-
-								/*
-								   CompressiveTracker tracker;
-								   for (size_t i = 0; i < faces.size(); i++) {
-								   tracker.init(last_gray, faces[i]);
-								   }
-
-								   Mat current_gray;
-								   while (capture.read(frame)) {
-								   cvtColor(frame, current_gray, CV_RGB2GRAY);
-
-								   for (size_t i = 0; i < faces.size(); i++) {
-								   tracker.processFrame(current_gray, faces[i]);
-								   rectangle(frame, faces[i], Scalar(0, 0, 255));
-								   }
-								   imshow("Test", frame);
-								   if (cvWaitKey(33) == 'q') { break; }
-								   }
-								 */
-
-
 								system("pause");
 								return 0;
 }
 
-void read_options(int argc, char** argv,VideoCapture& capture,int& skip_msecs){
+void read_options(int argc, char** argv, VideoCapture& capture, int& skip_msecs){
 								for(size_t i=0; i<argc; i++) {
 																if (strcmp(argv[i],"-s")==0) {
 																								if (argc>i) {
@@ -131,6 +125,12 @@ void read_options(int argc, char** argv,VideoCapture& capture,int& skip_msecs){
 																								}
 																}
 								}
+}
+
+void setTLD_Info(TLD_Info &tld_info, TLD *tld, int dirCounter, int fileCounter){
+								tld_info.tld = tld;
+								tld_info.dirCounter = dirCounter;
+								tld_info.fileCounter = fileCounter;
 }
 
 vector<Rect> faceDetection(Mat frame) {
