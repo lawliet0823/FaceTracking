@@ -131,7 +131,7 @@ void FerNNClassifier::trainNN(const vector<cv::Mat>& nn_examples){
 
   }                                                                 //  end
   acum++;
-  printf("%d. Trained NN examples: %d positive %d negative\n",acum,(int)pEx.size(),(int)nEx.size());
+  //printf("%d. Trained NN examples: %d positive %d negative\n",acum,(int)pEx.size(),(int)nEx.size());
 }                                                                  //  end
 
 

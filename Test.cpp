@@ -49,7 +49,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	namedWindow("Test", WINDOW_AUTOSIZE);
+	//namedWindow("Test", WINDOW_AUTOSIZE);
 	capture.set(CV_CAP_PROP_POS_MSEC, skip_msecs); // The big bang theory
 	//capture.set(CV_CAP_PROP_POS_MSEC, 1400000); // Sherlock
 
@@ -74,16 +74,22 @@ int main(int argc, char** argv)
 		if(remainFrame != 0){
 			int correct_num = 0;
 			for(size_t i = 0; i < vtld_info.size(); i++) {
-				char filePath[20];
+				char filePath[30];
+				memset(filePath, '\0', 30);
 				TLD_Info tempTLD_Info = vtld_info[i];
 				tempTLD_Info.tld->processFrame(last_gray, current_gray, pts1, pts2, pbox, status, tl);
 
 				// success tracking
 				if (status) {
+					pbox.x = pbox.x - 20;
+					pbox.y = pbox.y - 20;
+					pbox.width = pbox.width + 40;
+					pbox.height = pbox.height + 40;
 					Mat face_image = frame(pbox);
-					sprintf(filePath, "./%d/%d.jpg", tempTLD_Info.dirCounter, tempTLD_Info.fileCounter);
+					sprintf(filePath, "./Crop_Image/%03d/%03d.jpg", tempTLD_Info.dirCounter, tempTLD_Info.fileCounter);
 					imwrite(filePath, face_image);
 					++tempTLD_Info.fileCounter;
+					vtld_info[i] = tempTLD_Info;
 					//drawPoints(frame, pts1);
 					//drawPoints(frame, pts2, Scalar(0, 255, 0));
 					//drawBox(frame, pbox);
@@ -109,6 +115,7 @@ int main(int argc, char** argv)
 			vector<TLD_Info>().swap(vtld_info);
 			vector<Rect>().swap(faces);
 			createDirectory(capture, fs, last_gray, faces, vtld_info, dirCounter);
+			remainFrame = 3;
 		}
 		//imshow("Test", frame);
 		//waitKey(1);
@@ -117,16 +124,16 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-void read_options(int argc, char** argv, VideoCapture& capture, int& skip_msecs){
-	for(size_t i=0; i<argc; i++) {
-		if (strcmp(argv[i],"-s")==0) {
-			if (argc>i) {
+void read_options(int argc, char** argv, VideoCapture &capture, int &skip_msecs){
+	for(size_t i = 0; i < argc; i++) {
+		if (strcmp(argv[i],"-s") == 0) {
+			if (argc > i) {
 				string video = string(argv[i+1]);
 				capture.open(video);
 			}
 		}
-		if(strcmp(argv[i],"-t")==0) {
-			if(argc>i) {
+		if(strcmp(argv[i], "-t") == 0) {
+			if(argc > i) {
 				skip_msecs = atoi(argv[i+1]);
 			}
 		}
@@ -142,14 +149,15 @@ void createDirectory(VideoCapture &capture, FileStorage &fs, Mat &last_gray, vec
 	}
 
 	// create directory && initialize TLD && set up parameters
-	char dirPath[20];
+	char dirPath[30];
+	memset(dirPath, '\0', 30);
 	for(size_t i = 0; i < faces.size(); i++) {
 		TLD_Info tempTLD_Info;
 		TLD *tempTLD = new TLD();
 		tempTLD->read(fs.getFirstTopLevelNode());
 		tempTLD->init(last_gray, faces[i]);
 		setTLD_Info(tempTLD_Info, tempTLD, dirCounter, 1);
-		sprintf(dirPath, "./%d/", dirCounter);
+		sprintf(dirPath, "./Crop_Image/%03d/", dirCounter);
 		mkdir(dirPath, 0700);
 		++dirCounter;
 		vtld_info.push_back(tempTLD_Info);
@@ -164,7 +172,7 @@ void setTLD_Info(TLD_Info &tld_info, TLD *tld, int dirCounter, int fileCounter){
 }
 
 void freeTLD_Info(vector<TLD_Info> &vtld_info){
-	for(size_t i=0;i<vtld_info.size();i++){
+	for(size_t i = 0; i < vtld_info.size(); i++){
 		delete vtld_info[i].tld;
 	}
 }

@@ -1,2 +1,3 @@
 Face Tracking Program
-
+Compile Command:
+g++ -g -o Test Test.cpp FerNNClassifier.cpp LKTracker.cpp TLD.cpp tld_utils.cpp -lm -ggdb `pkg-config --cflags opencv` `pkg-config --libs opencv` -I./Header
